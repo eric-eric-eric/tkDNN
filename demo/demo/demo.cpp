@@ -117,7 +117,7 @@ int main(int argc, char *argv[]) {
         } 
         if(!frame.data) 
             break;
-    
+
         //inference
         detNN->update(batch_dnn_input, n_batch);
         detNN->draw(batch_frame);
