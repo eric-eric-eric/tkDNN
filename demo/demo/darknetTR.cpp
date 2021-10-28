@@ -70,7 +70,7 @@ void do_inference(tk::dnn::Yolo3Detection *net, std::vector<cv::Mat> *batch, ima
     batch->clear();
     cv::Mat frame(im.h, im.w, CV_8UC3, (unsigned char*)im.data);
     batch->push_back(frame);
-    net->update(batch, 1);
+    net->update(*batch, 1);
 
 }
 

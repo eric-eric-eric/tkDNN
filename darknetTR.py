@@ -54,7 +54,7 @@ make_batch.argtypes = []
 make_batch.restype = c_void_p
 
 do_inference = lib.do_inference
-do_inference.argtypes = [c_void_p, IMAGE]
+do_inference.argtypes = [c_void_p, c_void_p, IMAGE]
 
 get_network_boxes = lib.get_network_boxes
 get_network_boxes.argtypes = [c_void_p, c_float, c_int, POINTER(c_int)]
@@ -106,12 +106,12 @@ def resizePadding(image, height, width):
     image = cv2.copyMakeBorder(image, top, bottom, left, right, cv2.BORDER_CONSTANT)
     return image
 
-def detect_image(net, meta, darknet_image, thresh=0.5):
+def detect_image(net, meta, darknet_image, batch, thresh=0.5):
     global tot_time
     num = c_int(0)
 
     pnum = pointer(num)
-    do_inference(net, darknet_image)
+    do_inference(net, batch, darknet_image)
     start = time.perf_counter()
     dets = get_network_boxes(net, thresh, 0, pnum)
     tot_time += time.perf_counter() - start
@@ -168,6 +168,7 @@ class YOLO4RT(object):
         self.model = load_network(weight_file.encode("ascii"), 80, 1)
         self.darknet_image = make_image(input_size, input_size, 3)
         self.thresh = conf_thres
+        self.batch = make_batch()
         # self.resize_fn = ResizePadding(input_size, input_size)
         # self.transf_fn = transforms.ToTensor()
 
@@ -181,7 +182,7 @@ class YOLO4RT(object):
             frame_data = image.ctypes.data_as(c_char_p)
             copy_image_from_bytes(self.darknet_image, frame_data)
 
-            detections = detect_image(self.model, self.metaMain, self.darknet_image, thresh=self.thresh)
+            detections = detect_image(self.model, self.metaMain, self.darknet_image, self.batch, thresh=self.thresh)
 
             # cvDrawBoxes(detections, image)
             # cv2.imshow("1", image)
