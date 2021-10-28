@@ -49,6 +49,10 @@ make_image = lib.make_image
 make_image.argtypes = [c_int, c_int, c_int]
 make_image.restype = IMAGE
 
+make_batch = lib.make_batch
+make_batch.argtypes = []
+make_batch.restype = c_void_p
+
 do_inference = lib.do_inference
 do_inference.argtypes = [c_void_p, IMAGE]
 
@@ -102,12 +106,15 @@ def resizePadding(image, height, width):
     image = cv2.copyMakeBorder(image, top, bottom, left, right, cv2.BORDER_CONSTANT)
     return image
 
-def detect_image(net, meta, darknet_image, thresh=.5):
+def detect_image(net, meta, darknet_image, thresh=0.5):
+    global tot_time
     num = c_int(0)
 
     pnum = pointer(num)
     do_inference(net, darknet_image)
-    dets = get_network_boxes(net, 0.5, 0, pnum)
+    start = time.perf_counter()
+    dets = get_network_boxes(net, thresh, 0, pnum)
+    tot_time += time.perf_counter() - start
     res = []
     for i in range(pnum[0]):
         b = dets[i].bbox
@@ -118,7 +125,6 @@ def detect_image(net, meta, darknet_image, thresh=.5):
 
 def loop_detect(detect_m, video_path):
     stream = cv2.VideoCapture(video_path)
-    start = time.time()
     cnt = 0
     while stream.isOpened():
         ret, image = stream.read()
@@ -134,7 +140,7 @@ def loop_detect(detect_m, video_path):
         for det in detections:
             print(det)
     end = time.time()
-    print("frame:{},time:{:.3f},FPS:{:.2f}".format(cnt, end-start, cnt/(end-start)))
+    print("frame:{},time:{:.3f},FPS:{:.2f}".format(cnt, tot_time, cnt/(tot_time)))
     stream.release()
 
 

@@ -49,6 +49,12 @@ image make_image(int w, int h, int c)
     return out;
 }
 
+std::vector<cv::Mat> make_batch()
+{
+    std::vector<cv::Mat> batch_dnn_input;
+    return batch_dnn_input;
+}
+
 tk::dnn::Yolo3Detection* load_network(char* net_cfg, int n_classes, int n_batch)
 {
     std::string net;
@@ -59,13 +65,12 @@ tk::dnn::Yolo3Detection* load_network(char* net_cfg, int n_classes, int n_batch)
     return detNN;
 }
 #include <typeinfo>
-void do_inference(tk::dnn::Yolo3Detection *net, image im)
+void do_inference(tk::dnn::Yolo3Detection *net, std::vector<cv::Mat> *batch, image im)
 {
-    std::vector<cv::Mat> batch_dnn_input;
-
+    batch.clear()
     cv::Mat frame(im.h, im.w, CV_8UC3, (unsigned char*)im.data);
-    batch_dnn_input.push_back(frame);
-    net->update(batch_dnn_input, 1);
+    batch.push_back(frame);
+    net->update(batch, 1);
 
 }
 
