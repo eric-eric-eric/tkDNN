@@ -8,6 +8,18 @@ void sig_handler(int signo) {
     gRun = false;
 }
 
+PyImgReader::PyImgReader(void* data, int h, int w, int type)
+{
+    cv::Mat img(h, w, type, data);
+    this->img = img; //.clone();
+}
+
+
+cv::Mat* PyImgReader::getImg()
+{
+    return &(this->img);
+}
+
 extern "C"
 {
 
@@ -49,12 +61,6 @@ image make_image(int w, int h, int c)
     return out;
 }
 
-std::vector<cv::Mat> make_batch()
-{
-    std::vector<cv::Mat> batch_dnn_input;
-    return batch_dnn_input;
-}
-
 tk::dnn::Yolo3Detection* load_network(char* net_cfg, int n_classes, int n_batch)
 {
     std::string net;
@@ -65,13 +71,11 @@ tk::dnn::Yolo3Detection* load_network(char* net_cfg, int n_classes, int n_batch)
     return detNN;
 }
 #include <typeinfo>
-void do_inference(tk::dnn::Yolo3Detection *net, std::vector<cv::Mat> *batch, image im)
+void do_inference(tk::dnn::Yolo3Detection *net, PyImgReader* reader)
 {
-    batch->clear();
-    cv::Mat frame(im.h, im.w, CV_8UC3, (unsigned char*)im.data);
-    batch->push_back(frame);
-    net->update(*batch, 1);
-
+    std::vector<cv::Mat> batch_dnn_input;
+    batch_dnn_input.push_back(reader->getImg());
+    net->update(batch_dnn_input, 1);
 }
 
 
