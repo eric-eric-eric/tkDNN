@@ -9,13 +9,13 @@
 2020/6/12 14:40   JZ      1.0         None
 """
 
-from ctypes import *
-import cv2
-import numpy as np
 import argparse
-import os
-from threading import Thread
 import time
+from ctypes import *
+from threading import Thread
+
+import cv2
+
 
 class IMAGE(Structure):
     _fields_ = [("w", c_int),
@@ -23,18 +23,21 @@ class IMAGE(Structure):
                 ("c", c_int),
                 ("data", POINTER(c_float))]
 
+
 class BOX(Structure):
     _fields_ = [("x", c_float),
                 ("y", c_float),
                 ("w", c_float),
                 ("h", c_float)]
 
+
 class DETECTION(Structure):
     _fields_ = [("cl", c_int),
                 ("bbox", BOX),
                 ("prob", c_float),
-                ("name", c_char*20),
+                ("name", c_char * 20),
                 ]
+
 
 lib = CDLL("./build/libdarknetTR.so", RTLD_GLOBAL)
 
@@ -43,7 +46,7 @@ load_network.argtypes = [c_char_p, c_int, c_int]
 load_network.restype = c_void_p
 
 copy_image_from_bytes = lib.copy_image_from_bytes
-copy_image_from_bytes.argtypes = [IMAGE,c_char_p]
+copy_image_from_bytes.argtypes = [IMAGE, c_char_p]
 
 make_image = lib.make_image
 make_image.argtypes = [c_int, c_int, c_int]
@@ -56,15 +59,16 @@ get_network_boxes = lib.get_network_boxes
 get_network_boxes.argtypes = [c_void_p, c_float, c_int, POINTER(c_int)]
 get_network_boxes.restype = POINTER(DETECTION)
 
+
 # cfg = 'yolo4_fp16.rt'
 # netMain = load_network(cfg.encode("ascii"), 80, 1)  # batch size = 1
 #
 #
-# darknet_image = make_image(512, 512, 3)
+# darknet_image = make_image(416, 416, 3)
 # image = cv2.imread('/home/juzheng/dataset/mask/image/20190821004325_55.jpg')
 # frame_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 # image = cv2.resize(frame_rgb,
-#                    (512, 512),
+#                    (416, 416),
 #                    interpolation=cv2.INTER_LINEAR)
 #
 # # frame_data = np.asarray(image, dtype=np.uint8)
@@ -102,12 +106,19 @@ def resizePadding(image, height, width):
     image = cv2.copyMakeBorder(image, top, bottom, left, right, cv2.BORDER_CONSTANT)
     return image
 
+
+tot_time = 0
+
+
 def detect_image(net, meta, darknet_image, thresh=.5):
+    global tot_time
     num = c_int(0)
 
     pnum = pointer(num)
+    start = time.perf_counter()
     do_inference(net, darknet_image)
-    dets = get_network_boxes(net, 0.5, 0, pnum)
+    tot_time += time.perf_counter() - start
+    dets = get_network_boxes(net, thresh, 0, pnum)
     res = []
     for i in range(pnum[0]):
         b = dets[i].bbox
@@ -118,23 +129,21 @@ def detect_image(net, meta, darknet_image, thresh=.5):
 
 def loop_detect(detect_m, video_path):
     stream = cv2.VideoCapture(video_path)
-    start = time.time()
     cnt = 0
     while stream.isOpened():
         ret, image = stream.read()
         if ret is False:
             break
-        # image = resizePadding(image, 512, 512)
+        # image = resizePadding(image, 416, 416)
         # frame_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = cv2.resize(image,
-                           (512, 512),
+                           (416, 416),
                            interpolation=cv2.INTER_LINEAR)
         detections = detect_m.detect(image, need_resize=False)
         cnt += 1
         for det in detections:
             print(det)
-    end = time.time()
-    print("frame:{},time:{:.3f},FPS:{:.2f}".format(cnt, end-start, cnt/(end-start)))
+        print("frame:{},time:{:.3f},FPS:{:.2f}".format(cnt, tot_time, cnt / (tot_time)))
     stream.release()
 
 
@@ -151,14 +160,14 @@ def loop_detect(detect_m, video_path):
 
 class YOLO4RT(object):
     def __init__(self,
-                 input_size=512,
+                 input_size=416,
                  weight_file='./yolo4_fp16.rt',
                  metaPath='Models/yolo4/coco.data',
                  nms=0.2,
                  conf_thres=0.3,
                  device='cuda'):
         self.input_size = input_size
-        self.metaMain =None
+        self.metaMain = None
         self.model = load_network(weight_file.encode("ascii"), 80, 1)
         self.darknet_image = make_image(input_size, input_size, 3)
         self.thresh = conf_thres
@@ -185,14 +194,14 @@ class YOLO4RT(object):
         except Exception as e_s:
             print(e_s)
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description='tkDNN detect')
     parser.add_argument('weight', help='rt file path')
-    parser.add_argument('--video',  type=str, help='video path')
+    parser.add_argument('--video', type=str, help='video path')
     args = parser.parse_args()
 
     return args
-
 
 
 if __name__ == '__main__':
